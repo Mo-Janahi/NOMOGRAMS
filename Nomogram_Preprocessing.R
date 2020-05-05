@@ -148,12 +148,12 @@ library(TTR)
 
 # UKB Table is saved as CSV file on lacal machine
 # Two files to load because we selected the columns in two batches
-ukb <- read.csv("~/Desktop/ukb_data/ukb_table.csv")
-ukb_ext <- read.csv("~/Desktop/ukb_data/ukb_features_v2.csv")
+ukb <- read.csv("~/Desktop/UKB NOMOGRAM PROJECT/ukb_data/ukb_table.csv")
+ukb_ext <- read.csv("~/Desktop/UKB NOMOGRAM PROJECT/ukb_data/ukb_features_v2.csv")
 # Merge the two tables
 ukb <- merge(ukb , ukb_ext , by.x="eid" , by.y="eid")
 
-#ukb <- read.csv("~/Desktop/ukb_data/with_imaging_40k/ukb_features_042020.csv")
+ukb <- read.csv("~/Desktop/UKB NOMOGRAM PROJECT/ukb_data/with_imaging_40k/ukb_features_042020.csv")
 
 # For readability, rename some columns
 names(ukb)[names(ukb) == 'X31.0.0']    <- 'Sex'
@@ -449,7 +449,7 @@ for( GENDER in c("Male","Female","Both Genders")){
     }
     
     bplot <- barplot(main = paste(GENDER , " " , HEMISPHERE) , 
-                     HV_SNP[,4] , xlab = "P-Value Threshold" , ylab = "R-Squared" , ylim = c(0,0.014) , 
+                     HV_SNP[,4] , xlab = "P-Value Threshold" , ylab = "R-Squared" , ylim = c(0,0.14) , 
             names=c("1e-8","1e-7","1e-6","1e-5","1e-4","1e-3","0.01","0.05","0.1" , "0.2" , "0.4" , "0.5" , "0.75" , "1"))
     
     text( x=c(1:14)*1.2,  y=HV_SNP[,4]+0.0001, formatC(HV_SNP[,3], format = "e", digits = 2) , srt=80 , adj=c(0,-1))
