@@ -2,11 +2,12 @@
 
 
 
-REGRESS_OUT_COLUMN <- function( col_name , regress_column){
+REGRESS_OUT_COLUMN <- function( col_name , regress_column , regress_column_2 = NA , regress_column_3 = NA){
   
-  # Third step is to correct for some variables by regressing them out. 
+  if ( is.na(regress_column_2[1]) ) regress_column_2 <- regress_column * 0
+  if ( is.na(regress_column_3[1]) ) regress_column_3 <- regress_column * 0
   
-  mod  <- lm( col_name  ~  regress_column , na.action = na.exclude )
+  mod  <- lm( col_name  ~  regress_column + regress_column_2 + regress_column_3, na.action = na.exclude )
   
   mean_factor <- mean( regress_column , na.rm = TRUE)
   
@@ -111,6 +112,31 @@ READ_PRS_TABLE <- function( table_path ){
   # So we used PRSice to find a PRS based on the full GWAS file and not just the 6 snps.
 }
 
+MAD_FILTER <- function( table , columns , threshold){
+  
+  for (col in columns) {
+    vals <- table[,col]
+    mean<- mean(vals , na.rm = TRUE)
+    mae <- sum(abs(vals - mean ) , na.rm = TRUE)  / sum(!is.na(vals))
+    table <- table[ which( abs(vals- mean) < 5 * mae) , ]
+  }
+  return (table)
+  
+  #ukb_img_ex_hv_left_mean  <- mean(ukb_img_ex$HV.Left , na.rm = TRUE)
+  # Then the MAE: 1/n * sum( x - mean(x) )
+  #ukb_img_ex_hv_left_mae  <- sum(abs(ukb_img_ex$HV.Left - ukb_img_ex_hv_left_mean ) , na.rm = TRUE)  / sum(!is.na(ukb_img_ex$HV.Left))
+  
+  # Repeat for right hemisphere
+  #ukb_img_ex_hv_right_mean <- mean(ukb_img_ex$HV.Right , na.rm = TRUE)
+  #ukb_img_ex_hv_right_mae <- sum(abs(ukb_img_ex$HV.Right - ukb_img_ex_hv_right_mean ) , na.rm = TRUE) / sum(!is.na(ukb_img_ex$HV.Right))
+  
+  # Do the outlier filtering
+  #ukb_img_ex_outliers <- ukb_img_ex[ which( (abs(ukb_img_ex$HV.Right - ukb_img_ex_hv_right_mean) < 5 * ukb_img_ex_hv_right_mae)
+  #                                          | (abs(ukb_img_ex$HV.Left - ukb_img_ex_hv_left_mean) < 5 * ukb_img_ex_hv_left_mae) ) , ]
+  
+  
+}
+
 PREPROCESS_UKBB <- function( ukb ){
   
   #ukb <- read.csv("~/Desktop/UKB NOMOGRAM PROJECT/ukb_data/with_imaging_40k/ukb_features_20200529.csv")
@@ -192,23 +218,18 @@ PREPROCESS_UKBB <- function( ukb ){
   
   excluded_rows <- subset( excluded_rows , !( excluded_rows$eid %in% ukb_img_ex$eid) )
   
+  # stratify by gender
+  ukb_img_ex_outliers_male   <- ukb_img_ex[ which(ukb_img_ex$Sex == 1),]
+  ukb_img_ex_outliers_female <- ukb_img_ex[ which(ukb_img_ex$Sex == 0),]
+  
+  
   # Outliers
   
   # next step is to filter out outliers.
   # This is done by filtering out all volumes that are more than 5 MAE's away from the mean. 
-  # 25019.2.0 is left HV, 25020.2.0 is right HV.
   # Find the mean of both HV
-  ukb_img_ex_hv_left_mean  <- mean(ukb_img_ex$HV.Left , na.rm = TRUE)
-  # Then the MAE: 1/n * sum( x - mean(x) )
-  ukb_img_ex_hv_left_mae  <- sum(abs(ukb_img_ex$HV.Left - ukb_img_ex_hv_left_mean ) , na.rm = TRUE)  / sum(!is.na(ukb_img_ex$HV.Left))
-
-  # Repeat for right hemisphere
-  ukb_img_ex_hv_right_mean <- mean(ukb_img_ex$HV.Right , na.rm = TRUE)
-  ukb_img_ex_hv_right_mae <- sum(abs(ukb_img_ex$HV.Right - ukb_img_ex_hv_right_mean ) , na.rm = TRUE) / sum(!is.na(ukb_img_ex$HV.Right))
-  
-  # Do the outlier filtering
-  ukb_img_ex_outliers <- ukb_img_ex[ which( (abs(ukb_img_ex$HV.Right - ukb_img_ex_hv_right_mean) < 5 * ukb_img_ex_hv_right_mae)
-                                            | (abs(ukb_img_ex$HV.Left - ukb_img_ex_hv_left_mean) < 5 * ukb_img_ex_hv_left_mae) ) , ]
+  ukb_img_ex_outliers_male <- MAD_FILTER(ukb_img_ex_outliers_male , c("HV.Left","HV.Right") , 5)
+  ukb_img_ex_outliers_female <- MAD_FILTER(ukb_img_ex_outliers_female , c("HV.Left","HV.Right") , 5)
   
   
   
@@ -216,18 +237,14 @@ PREPROCESS_UKBB <- function( ukb ){
   
   # next step is to correct for some variables by regressing them out. 
   
-  # stratify by gender
-  ukb_img_ex_outliers_male   <- ukb_img_ex_outliers[ which(ukb_img_ex_outliers$Sex == 1),]
-  ukb_img_ex_outliers_female <- ukb_img_ex_outliers[ which(ukb_img_ex_outliers$Sex == 0),]
-  
   # do the regressing out of variables independently for each gender 
   ukb_img_ex_outliers_male$clean_hv_left <- REGRESS_OUT("HV.Left" , "Volumetric.scaling.from.T1.head.image.to.standard.space", ukb_img_ex_outliers_male)
   ukb_img_ex_outliers_male$clean_hv_right <- REGRESS_OUT("HV.Right" , "Volumetric.scaling.from.T1.head.image.to.standard.space", ukb_img_ex_outliers_male)
-  ukb_img_ex_outliers_male$clean_hv_bilateral <- ukb_img_ex_outliers_male$clean_hv_left + ukb_img_ex_outliers_male$clean_hv_right
+  ukb_img_ex_outliers_male$clean_hv_bilateral <- ( ukb_img_ex_outliers_male$clean_hv_left + ukb_img_ex_outliers_male$clean_hv_right )/2
   
   ukb_img_ex_outliers_female$clean_hv_left <- REGRESS_OUT("HV.Left" , "Volumetric.scaling.from.T1.head.image.to.standard.space", ukb_img_ex_outliers_female)
   ukb_img_ex_outliers_female$clean_hv_right <- REGRESS_OUT("HV.Right" , "Volumetric.scaling.from.T1.head.image.to.standard.space", ukb_img_ex_outliers_female)
-  ukb_img_ex_outliers_female$clean_hv_bilateral <- ukb_img_ex_outliers_female$clean_hv_left + ukb_img_ex_outliers_female$clean_hv_right
+  ukb_img_ex_outliers_female$clean_hv_bilateral <- (ukb_img_ex_outliers_female$clean_hv_left + ukb_img_ex_outliers_female$clean_hv_right)/2
 
   
   # Genetics
@@ -310,45 +327,30 @@ PREPROCESS_ADNI <- function( ADNI_table ){
   ADNI_filter <- ADNI_filter[ ADNI_filter$PTRACCAT == "White" , ]
   
   ADNI_filter$TRUE.AGE <- ADNI_filter$AGE + ADNI_filter$Years.bl
-  # Male substrata
+  
+  ADNI_filter[ ADNI_filter$RHIPQC == "Fail" , "HV_Right" ] = NA
+  ADNI_filter[ ADNI_filter$LHIPQC == "Fail" , "HV_Left" ] = NA
+  
+  # Male strata
   ADNI_filter_male <- ADNI_filter[ ADNI_filter$PTGENDER == "Male", ]
   
-  # correct for ICV
-  mod  <- lm( ADNI_filter_male[,"HV_Right"]  ~  ICV , ADNI_filter_male , na.action = na.exclude )
-  mean_ICV <- mean(ADNI_filter_male$ICV , na.rm = TRUE)
-  ADNI_filter_male$clean_hv_right <- coefficients(mod)[1] + resid(mod) + (coefficients(mod)[2] * mean_ICV) 
+  # correct for ICV and scan date
+  ADNI_filter_male$clean_hv_right <- REGRESS_OUT_COLUMN(ADNI_filter_male$HV_Right , ADNI_filter_male$ICV ,
+                                                        as.numeric(ADNI_filter_male$EXAMDATE.x))
+  ADNI_filter_male$clean_hv_left <- REGRESS_OUT_COLUMN(ADNI_filter_male$HV_Left , ADNI_filter_male$ICV ,
+                                                       as.numeric(ADNI_filter_male$EXAMDATE.x))
   
-  mod  <- lm( ADNI_filter_male[,"HV_Left"]  ~  ICV , ADNI_filter_male , na.action = na.exclude )
-  mean_ICV <- mean(ADNI_filter_male$ICV , na.rm = TRUE)
-  ADNI_filter_male$clean_hv_left <- coefficients(mod)[1] + resid(mod) + (coefficients(mod)[2] * mean_ICV) 
+  ADNI_filter_male$clean_hv_bilateral <- ( ADNI_filter_male$clean_hv_left + ADNI_filter_male$clean_hv_right ) / 2
   
-  #ADNI_filter_male$clean_hv_left <- ADNI_filter_male$HV_Left
-  #ADNI_filter_male$clean_hv_right <- ADNI_filter_male$HV_Right
-  
-  ADNI_filter_male[ ADNI_filter_male$RHIPQC == "Fail" , "clean_hv_right" ] = NA
-  ADNI_filter_male[ ADNI_filter_male$LHIPQC == "Fail" , "clean_hv_left" ] = NA
-  
-  ADNI_filter_male$clean_hv_bilateral = ADNI_filter_male$clean_hv_left + ADNI_filter_male$clean_hv_right
-  
-
+  # Female strata
   ADNI_filter_female <- ADNI_filter[ ADNI_filter$PTGENDER == "Female", ]
+  # correct for ICV
+  ADNI_filter_female$clean_hv_right <- REGRESS_OUT_COLUMN(ADNI_filter_female$HV_Right , ADNI_filter_female$ICV ,
+                                                          as.numeric(ADNI_filter_female$EXAMDATE.x))
+  ADNI_filter_female$clean_hv_left <- REGRESS_OUT_COLUMN(ADNI_filter_female$HV_Left , ADNI_filter_female$ICV ,
+                                                         as.numeric(ADNI_filter_female$EXAMDATE.x))
+  ADNI_filter_female$clean_hv_bilateral <- ( ADNI_filter_female$clean_hv_left + ADNI_filter_female$clean_hv_right ) / 2
   
-  mod  <- lm( ADNI_filter_female[,"HV_Right"]  ~  ICV , ADNI_filter_female , na.action = na.exclude )
-  mean_ICV <- mean(ADNI_filter_female$ICV , na.rm = TRUE)
-  ADNI_filter_female$clean_hv_right <- coefficients(mod)[1] + resid(mod) + (coefficients(mod)[2] * mean_ICV) 
-  
-  mod  <- lm( ADNI_filter_female[,"HV_Left"]  ~  ICV , ADNI_filter_female , na.action = na.exclude )
-  mean_ICV <- mean(ADNI_filter_female$ICV , na.rm = TRUE)
-  ADNI_filter_female$clean_hv_left <- coefficients(mod)[1] + resid(mod) + (coefficients(mod)[2] * mean_ICV) 
-  
-  #ADNI_filter_female$clean_hv_left <- ADNI_filter_female$HV_Left
-  #ADNI_filter_female$clean_hv_right <- ADNI_filter_female$HV_Right
-  
-  ADNI_filter_female[ ADNI_filter_female$RHIPQC == "Fail" , "clean_hv_right" ] = NA
-  ADNI_filter_female[ ADNI_filter_female$LHIPQC == "Fail" , "clean_hv_left" ] = NA
-  
-  ADNI_filter_female$clean_hv_bilateral = ADNI_filter_female$clean_hv_left + ADNI_filter_female$clean_hv_right
-  
-  return( list( ADNI_filter_male = ADNI_filter_male ,
-                ADNI_filter_female = ADNI_filter_female ) )
+  return( list( ADNI_male = ADNI_filter_male ,
+                ADNI_female = ADNI_filter_female ) )
 }
