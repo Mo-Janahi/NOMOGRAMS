@@ -45,8 +45,8 @@ EXPLORE_THRESHOLD <- function( ukb_img_ex_outliers_male , ukb_img_ex_outliers_fe
       
       hist(ukb_img_ex_outliers_male_upper$AGE_Latest , 100 , main = "male UPPER" , xlab = "age" , ylab = paste("P:",perc , "% T:" , substr(PRS_Thresh , 8 , 100) ) )
       hist(ukb_img_ex_outliers_male_lower$AGE_Latest , 100 , main = "male LOWER" , xlab = "age" )
-      hist(ukb_img_ex_outliers_female_upper$AGE_Latest , 100 , main = "FEmale UPPER" , xlab = "age" )
-      hist(ukb_img_ex_outliers_female_lower$AGE_Latest , 100 , main = "FEmale LOWER" , xlab = "age" )
+      hist(ukb_img_ex_outliers_female_upper$AGE_Latest , 100 , main = "Female UPPER" , xlab = "age" )
+      hist(ukb_img_ex_outliers_female_lower$AGE_Latest , 100 , main = "Female LOWER" , xlab = "age" )
       
       x <- 0
       for (i in c(percentiles_l,percentiles_r) ){
@@ -119,81 +119,79 @@ EXPLORE_UKB_ADNI_GPR <- function( ukb_img_ex_outliers_male , ADNI_filter_male_CN
 # Explore how far we can rely on the nomogram at its ends
 #
 #
-EXPLORE_GPR_LIMITS <- function(ukb_img_ex_outliers_male){
+EXPLORE_GPR_LIMITS <- function(ukb_table){
   
   # Test 1: include 1000 samples of people below age 60/70/80/90. How long before it goes out of wack?
-  par(mfrow=c(2,2))
+#  par(mfrow=c(2,2))
   
-  table_60s <- (ukb_img_ex_outliers_male[(ukb_img_ex_outliers_male$AGE_Latest < 60) , ])
-  table_60s_samples <- table_60s[ sample(1:nrow(table_60s), 1000, replace = FALSE) , ]
-  bins_60s <- GPR_ANALYSIS(table_60s_samples)
-  PLOT_NOMOGRAM(bins_60s)
-  abline(v=max(table_60s_samples$AGE_Latest) , col="black")
-  abline(v=min(table_60s_samples$AGE_Latest) , col="black")
+#  table_60s <- (ukb_table[(ukb_table$AGE_Latest < 60) , ])
+  #  table_60s_samples <- table_60s[ sample(1:nrow(table_60s), 1000, replace = FALSE) , ]
+  #  bins_60s <- GPR_ANALYSIS(table_60s_samples)
+  #PLOT_NOMOGRAM(bins_60s)
+  #abline(v=max(table_60s_samples$AGE_Latest) , col="black")
+  #abline(v=min(table_60s_samples$AGE_Latest) , col="black")
   
-  table_70s <- (ukb_img_ex_outliers_male[(ukb_img_ex_outliers_male$AGE_Latest < 70) , ])
-  table_70s_samples <- table_70s[ sample(1:nrow(table_70s), 1000, replace = FALSE) , ]
-  bins_70s <- GPR_ANALYSIS(table_70s_samples)
-  PLOT_NOMOGRAM(bins_70s)
-  abline(v=max(table_70s_samples$AGE_Latest) , col="black")
-  abline(v=min(table_70s_samples$AGE_Latest) , col="black")
+  #table_70s <- (ukb_table[(ukb_table$AGE_Latest < 70) , ])
+  #table_70s_samples <- table_70s[ sample(1:nrow(table_70s), 1000, replace = FALSE) , ]
+  #bins_70s <- GPR_ANALYSIS(table_70s_samples)
+  #PLOT_NOMOGRAM(bins_70s)
+  #abline(v=max(table_70s_samples$AGE_Latest) , col="black")
+  #abline(v=min(table_70s_samples$AGE_Latest) , col="black")
   
-  table_80s <- (ukb_img_ex_outliers_male[(ukb_img_ex_outliers_male$AGE_Latest < 80) , ])
-  table_80s_samples <- table_80s[ sample(1:nrow(table_80s), 1000, replace = FALSE) , ]
-  bins_80s <- GPR_ANALYSIS(table_80s_samples)
-  PLOT_NOMOGRAM(bins_80s)
-  abline(v=max(table_80s_samples$AGE_Latest) , col="black")
-  abline(v=min(table_80s_samples$AGE_Latest) , col="black")
+  #table_80s <- (ukb_table[(ukb_table$AGE_Latest < 80) , ])
+  #table_80s_samples <- table_80s[ sample(1:nrow(table_80s), 1000, replace = FALSE) , ]
+  #bins_80s <- GPR_ANALYSIS(table_80s_samples)
+  #PLOT_NOMOGRAM(bins_80s)
+  #abline(v=max(table_80s_samples$AGE_Latest) , col="black")
+  #abline(v=min(table_80s_samples$AGE_Latest) , col="black")
   
-  table_90s <- (ukb_img_ex_outliers_male[(ukb_img_ex_outliers_male$AGE_Latest < 90) , ])
-  table_90s_samples <- table_90s[ sample(1:nrow(table_90s), 1000, replace = FALSE) , ]
-  bins_90s <- GPR_ANALYSIS(table_90s_samples)
-  PLOT_NOMOGRAM(bins_90s)
-  abline(v=max(table_90s_samples$AGE_Latest) , col="black")
-  abline(v=min(table_90s_samples$AGE_Latest) , col="black")
+  #table_90s <- (ukb_table[(ukb_table$AGE_Latest < 90) , ])
+  #table_90s_samples <- table_90s[ sample(1:nrow(table_90s), 1000, replace = FALSE) , ]
+  #bins_90s <- GPR_ANALYSIS(table_90s_samples)
+  #PLOT_NOMOGRAM(bins_90s)
+  #abline(v=max(table_90s_samples$AGE_Latest) , col="black")
+  #abline(v=min(table_90s_samples$AGE_Latest) , col="black")
   
   # Test 2: take overlapping years, 600 samples between ages, check overlapping areas for how long before it goes out of wack
-  indices <- floor(seq(1 , nrow(ukb_img_ex_outliers_male), nrow(ukb_img_ex_outliers_male)/1500 ))
-  ukb_img_ex_outliers_male <- ukb_img_ex_outliers_male[ order(ukb_img_ex_outliers_male[,"AGE_Latest"]), ]
-  full_table <- ukb_img_ex_outliers_male[indices,]
+  indices <- floor(seq(1 , nrow(ukb_male), nrow(ukb_male)/1500 ))
+  ukb_male <- ukb_male[ order(ukb_male[,"AGE_Latest"]), ]
+  full_table <- ukb_male[indices,]
   
-  table_1 <- full_table[ 1:600 , ]
+  aged_table <- full_table[ (full_table$AGE_Latest >= 40 & full_table$AGE_Latest <= 60), ]
+  table_1 <- aged_table[ sample( 1:nrow(aged_table), 1000 , replace = TRUE), ]
   PLOT_NOMOGRAM( bins_1 <- GPR_ANALYSIS(table_1) )
   abline(v=max(table_1$AGE_Latest) , col="black")
   abline(v=min(table_1$AGE_Latest) , col="black")
   
-  table_2 <- full_table[ 300:900 , ]
+  aged_table <- full_table[ (full_table$AGE_Latest >= 50 & full_table$AGE_Latest <= 70), ]
+  table_2 <- aged_table[ sample( 1:nrow(aged_table), 1000 , replace = TRUE), ]
   PLOT_NOMOGRAM( bins_2 <- GPR_ANALYSIS(table_2) )
   abline(v=max(table_2$AGE_Latest) , col="black")
   abline(v=min(table_2$AGE_Latest) , col="black")
   
-  table_3 <- full_table[ 600:1200 , ]
+  aged_table <- full_table[ (full_table$AGE_Latest >= 60 & full_table$AGE_Latest <= 80), ]
+  table_3 <- aged_table[ sample( 1:nrow(aged_table), 1000 , replace = TRUE), ]
   PLOT_NOMOGRAM( bins_3 <- GPR_ANALYSIS(table_3) )
   abline(v=max(table_3$AGE_Latest) , col="black")
   abline(v=min(table_3$AGE_Latest) , col="black")
   
-  table_4 <- full_table[ 900:1500 , ]
-  PLOT_NOMOGRAM( bins_4 <- GPR_ANALYSIS(table_4) )
-  abline(v=max(table_4$AGE_Latest) , col="black")
-  abline(v=min(table_4$AGE_Latest) , col="black")
-  
-  PLOT_NOMOGRAM_COMPARE(bins_1 , bins_2 , shade = FALSE , ylim = c(3000,6000) , hem = "left")
+  PLOT_NOMOGRAM_COMPARE(bins_1 , bins_2 , shade = FALSE , ylim = c(3000,6000))
   abline(v=max(table_2$AGE_Latest) , col="red")
   abline(v=max(table_1$AGE_Latest) , col="blue")
   
-  PLOT_NOMOGRAM_COMPARE(bins_2 , bins_3 , shade = FALSE , ylim = c(3000,6000) , hem = "left")
+  PLOT_NOMOGRAM_COMPARE(bins_2 , bins_3 , shade = FALSE , ylim = c(3000,6000))
   abline(v=max(table_2$AGE_Latest) , col="blue")
   abline(v=max(table_3$AGE_Latest) , col="red")
   
-  PLOT_NOMOGRAM_COMPARE(bins_3 , bins_4 , shade = FALSE , ylim = c(3000,6000) , hem = "left")
+  PLOT_NOMOGRAM_COMPARE(bins_1 , bins_3 , shade = FALSE , ylim = c(3000,6000))
   abline(v=max(table_3$AGE_Latest) , col="blue")
-  abline(v=max(table_4$AGE_Latest) , col="red")
+  abline(v=max(table_1$AGE_Latest) , col="red")
   
   
   # Test 3: does sample size make a difference to reliability of GPR beyond age range? 
   # keep max/min age range constant and try 600/1000/2000/5000 samples
-  ukb_img_ex_outliers_male <- ukb_img_ex_outliers_male[ order(ukb_img_ex_outliers_male[,"AGE_Latest"]), ]
-  table_all <- (ukb_img_ex_outliers_male[(ukb_img_ex_outliers_male$AGE_Latest < 70) & (ukb_img_ex_outliers_male$AGE_Latest > 60) , ])
+  ukb_table <- ukb_table[ order(ukb_table[,"AGE_Latest"]), ]
+  table_all <- (ukb_table[(ukb_table$AGE_Latest < 70) & (ukb_table$AGE_Latest > 60) , ])
   min_aged <- head(table_all , n = 1)
   max_aged <- tail(table_all , n = 1)
   

@@ -128,7 +128,10 @@ GPR_ANALYSIS <- function(ukb , XX=NA , age_column="AGE_Latest" ,
 
   if(is.na(XX[1])){
     XX <- matrix(seq( 30, 100, length = 70*4) , ncol=1)
+  }else {
+    XX <- matrix(XX , ncol=1)
   }
+  
   
   # initialize the output table
   bins <- INITIALIZE_BINS(nrow(XX))
@@ -151,14 +154,21 @@ GPR_ANALYSIS <- function(ukb , XX=NA , age_column="AGE_Latest" ,
     #X <- c(X , X_lm)
     #y <- c(y , y_lm)
     
-    g2 <- garg(list(mle = TRUE , start=mean(y)), y )
-    d2 <- darg(list(mle = TRUE, start=mean(distance(X)) ), matrix(X , ncol=1) )
+    #g2 <- garg(list(mle = TRUE), y )
+    #d2 <- darg(list(mle = TRUE), matrix(X , ncol=1) )
     
+    g2 <- garg(list(mle = TRUE , start=mean(y,na.rm = TRUE) , min=0), y )
+    d2 <- darg(list(mle = TRUE, start=mean(distance(X),na.rm=TRUE)), matrix(X , ncol=1) )
+
     gp  <- myGPsep(matrix(X , ncol=1) ,y , d=d2$start , g= g2$start , dK=TRUE) 
-    mle <- mleGPsep(  gp$gpsepi , param="both" , tmin=c(d2$min,g2$min) , tmax=c(d2$max, g2$max) )
+    #mle <- mleGPsep(  gp$gpsepi , param="both" , tmin=c(d2$min,g2$min) , tmax=c(d2$max, g2$max) )
+    mle <- jmleGPsep(  gp$gpsepi , drange=c(d2$min,d2$max) , grange=c(g2$min, g2$max) )
     p   <- predGPsep( gp$gpsepi , XX )
-    
-    deleteGPsep(gp$gpsepi)
+    if ( as.integer((abs(gp$d - mle$d)/mle$d) * 100) < 1 ){
+      print("TRAINING FAILED")
+      bins$mid_age <- -1
+    }
+    #deleteGPsep(gp$gpsepi)
     
     bins[ , paste("mean",suf,sep="") ] <- p$mean
     bins[ , paste("std",suf,sep="") ] <- sqrt(diag(p$Sigma))
@@ -170,10 +180,10 @@ GPR_ANALYSIS <- function(ukb , XX=NA , age_column="AGE_Latest" ,
   }
   
   # Gaussian smoothing
-  for (col in names(bins)){
-    if(!is.na(bins[ 1, col ]))
-      bins[ , col ] <- smth( bins[, col ],  method = 'gaussian', window=kernel_width)
-  }
+  #for (col in names(bins)){
+  #  if(!is.na(bins[ 1, col ]))
+  #    bins[ , col ] <- smth( bins[, col ],  method = 'gaussian', window=kernel_width)
+  #}
   
   # return the non-na rows
   return(bins[!is.na(bins$mid_age),])
@@ -200,43 +210,98 @@ myGPsep <- function (X, Z, d, g, dK = FALSE) {
   return(out)
 }
 
+Load_GP_to_C <- function(gp_model){
+  index <- 
+  return(index)
+}
+
+read_GP_from_table <- function( path ){
+  GP <- read.table(path)
+  return( list( m = GP[1,"m"] , n = GP[1,"m"] ,
+        X = GP[,"X"] , Z = GP[,"Z"] ,
+        d = GP[1,"d"] , g = GP[1,"g"] ,
+        dK = GP[1,"dK"] , gpsepi = GP[1,"gpsepi"])
+  )
+}
+
+LOAD_GP <- function( path ){
+  gp_model <- read_GP_from_table(path)
+  model <- myGPsep(matrix(gp_model$X,ncol=1) , gp_model$Z , gp_model$d , gp_model$g)
+  return(model)
+}
 
 #
 #
 #
 GPR_MODEL <- function(ukb , x_cols=c("AGE_Latest") , y_col="clean_hv_bilateral" ){
 
-  y = ukb[ !is.na(ukb[,y_col]) , y_col]
   X = ukb[ !is.na(ukb[,y_col]) , x_cols]
-
-  g2 <- garg(list(mle = TRUE), y)
-  d2 <- darg(list(mle = TRUE, max = 100), as.matrix(X) )
+  y = ukb[ !is.na(ukb[,y_col]) , y_col]
   
-  gp <- myGPsep(as.matrix(X) ,y , d=d2$start , g= g2$start , dK=TRUE) 
-  mle <- mleGPsep(gp$gpsepi , param="both" , tmin=c(d2$min,g2$min) , tmax=c(d2$max, g2$max) )
+  g2 <- garg(list(mle = TRUE , start=mean(y) , min=0), y )
+  d2 <- darg(list(mle = TRUE, start=mean(distance(X))), matrix(X , ncol=1) )
+  
+  gp  <- myGPsep(matrix(X , ncol=1) ,y , d=d2$start , g= g2$start , dK=TRUE) 
+  #mle <- mleGPsep(  gp$gpsepi , param="both" , tmin=c(d2$min,g2$min) , tmax=c(d2$max, g2$max) )
+  mle <- jmleGPsep(  gp$gpsepi , drange=c(d2$min,d2$max) , grange=c(g2$min, g2$max) )
+  
+  gp$d <- mle$theta[1]
+  gp$g <- mle$theta[2]
   
   return(gp)
 }
 
-GPR_MODEL_TO_BINS <- function(gp , XX){
+GPR_MODEL_TO_BINS <- function(gp_m=NA , gp_l=NA , gp_r=NA , XX = NA){
   
-  p <- predGPsep( gp$gpsepi , XX )
   
   if(is.na(XX[1])){
     XX <- matrix(seq( 30, 100, length = 70*4) , ncol=1)
+  } else {
+    XX <- matrix(XX , ncol=1)
   }
   
   # initialize the output table
   bins <- INITIALIZE_BINS(nrow(XX))
-  
   bins$mid_age <- c(XX)
-  bins[ , paste("mean",suf,sep="") ] <- p$mean
-  bins[ , paste("std",suf,sep="") ] <- sqrt(diag(p$Sigma))
-  for(lvl in LEVELS)
-    bins[ , paste( "q",lvl,suf,sep="")]  <- qnorm(lvl/100, mean = p$mean, sd = sqrt(diag(p$Sigma)))
   
-  bins[ , paste("min",suf,sep="") ] <- -Inf
-  bins[ , paste("max",suf,sep="") ] <- Inf
+  if (!is.na(gp_m[1])){
+    suf <- ""
+    p <- predGPsep( gp_m$gpsepi , XX )
+    bins[ , paste("mean",suf,sep="") ] <- p$mean
+    bins[ , paste("std",suf,sep="") ] <- sqrt(diag(p$Sigma))
+    for(lvl in LEVELS)
+      bins[ , paste( "q",lvl,suf,sep="")]  <- qnorm(lvl/100, mean = p$mean, sd = sqrt(diag(p$Sigma)))
+    
+    bins[ , paste("min",suf,sep="") ] <- -Inf
+    bins[ , paste("max",suf,sep="") ] <- Inf
+  }
+  
+  if (!is.na(gp_l[1])){
+    suf <- "_left"
+    p <- predGPsep( gp_l$gpsepi , XX )
+    bins[ , paste("mean",suf,sep="") ] <- p$mean
+    bins[ , paste("std",suf,sep="") ] <- sqrt(diag(p$Sigma))
+    for(lvl in LEVELS)
+      bins[ , paste( "q",lvl,suf,sep="")]  <- qnorm(lvl/100, mean = p$mean, sd = sqrt(diag(p$Sigma)))
+    
+    bins[ , paste("min",suf,sep="") ] <- -Inf
+    bins[ , paste("max",suf,sep="") ] <- Inf
+  }
+  
+  if (!is.na(gp_r[1])){
+    suf <- "_right"
+    p <- predGPsep( gp_r$gpsepi , XX )
+    bins[ , paste("mean",suf,sep="") ] <- p$mean
+    bins[ , paste("std",suf,sep="") ] <- sqrt(diag(p$Sigma))
+    for(lvl in LEVELS)
+      bins[ , paste( "q",lvl,suf,sep="")]  <- qnorm(lvl/100, mean = p$mean, sd = sqrt(diag(p$Sigma)))
+    
+    bins[ , paste("min",suf,sep="") ] <- -Inf
+    bins[ , paste("max",suf,sep="") ] <- Inf
+  }
+  
+  
+  return(bins)
 }
 
 GPR_ANALYSIS_TEST_MF <- function(ukb , XX=NA , age_column="AGE_Latest" , 
@@ -496,8 +561,9 @@ NOMOGRAM_DIFF <- function( bins_1 , bins_2 , hem="bilateral" ){
   cols <- paste( "q",LEVELS,suf ,sep="")
 
   mean_error <- mean(colMeans(abs( bins_1[ , cols] - bins_2[ , cols])))
-  
+  mean_val <- mean ( c( colMeans(bins_1[ , cols]) , colMeans( bins_2[ , cols]) ) )
   return(mean_error)
+  return((mean_error/mean_val)*100)
 }
 
 NOMOGRAM_DIFF_INTERPOLATE <- function( bins_1 , bins_2 , hem="bilateral" , age_range = NA ){
@@ -512,8 +578,15 @@ NOMOGRAM_DIFF_INTERPOLATE <- function( bins_1 , bins_2 , hem="bilateral" , age_r
     age_range_max <- min(max(bins_1$mid_age),max(bins_2$mid_age))
   }
   else{
-    age_range_min = age_range[1]
-    age_range_max = age_range[2]
+    age_range_min_given = age_range[1]
+    age_range_max_given = age_range[2]
+    
+    age_range_min_default <- max(min(bins_1$mid_age),min(bins_2$mid_age))
+    age_range_max_default <- min(max(bins_1$mid_age),max(bins_2$mid_age))
+    
+    age_range_min <- max( age_range_min_default , age_range_min_given)
+    age_range_max <- min( age_range_max_default , age_range_max_given)
+    
   }
   for ( col_name in cols ){
     
@@ -541,24 +614,19 @@ NOMOGRAM_DIFF_INTERPOLATE <- function( bins_1 , bins_2 , hem="bilateral" , age_r
         
         volume_2 <-  (( (age - under_age) / (over_age - under_age) ) * (over_volume - under_volume) ) + under_volume
         if(!is.na(abs( volume_1 - volume_2)))
-          error <- error + abs( volume_1 - volume_2)
+          error <- error + (abs( volume_1 - volume_2))
       }
     }
     
   }
   
   error <- error / (length(cols) * nrow(bins_1) )
-    #error = error + sum( abs( bins_1[ , col_name] - bins_2[ , col_name] ) , na.rm = TRUE )
-  max_age_range <- max(max(bins_1$mid_age),max(bins_2$mid_age)) - min(min(bins_1$mid_age),min(bins_2$mid_age))
-  min_age_range <- (age_range_max - age_range_min)
-  overlap_percent <- min_age_range / max_age_range 
-  #print(paste("AGE RANGE OVERLAP:" , overlap_percent))
   return(error)
 }
 
 # Function to plot nomograms given a bins object
 #
-PLOT_NOMOGRAM <- function( bins , hem = "bilateral" , title = " " , xlim = NA , ylim = NA ){
+PLOT_NOMOGRAM <- function( bins , hem = "bilateral" , title = " " , ylim = c(2700,5300) , xlim = c(40,85) , scatter = NA ){
   
   centers <- bins$mid_age
   
@@ -603,8 +671,11 @@ PLOT_NOMOGRAM <- function( bins , hem = "bilateral" , title = " " , xlim = NA , 
   axis( 1, seq(min_x , max_x , 1) )
   axis( 2, seq(min_y , max_y,100) , las=2)
   
-  abline(v=seq(min_x, max_x, 1) , col='grey' , lty=2)
-  abline(h=seq(min_y , max_y, 100) , col='grey' , lty=2)
+  abline(v=seq(min_x, max_x, 5) , col='grey' , lty=2)
+  abline(h=seq(min_y , max_y, 200) , col='grey' , lty=2)
+  
+  if( !is.na(scatter[1]))
+    points( scatter$AGE_Latest, scatter[,paste("clean_hv_",hem,sep="")] , col="grey")
   
   polygon( c( centers , rev(centers) ) , c(q2.5 , rev(q97.5)) , col=rgb(1,0.61,0.16,0.2) , border = NA)
   polygon( c( centers , rev(centers) ) , c(q5 , rev(q95)) , col=rgb(1,0.61,0.16,0.2) , border = NA)
@@ -623,7 +694,7 @@ PLOT_NOMOGRAM <- function( bins , hem = "bilateral" , title = " " , xlim = NA , 
 }
 
 
-PLOT_NOMOGRAM_COMPARE <- function( bins_1 , bins_2 , hem="bilateral" , col_1="blue" , col_2="red" , title = " " , xlim=NA , ylim=NA , shade=TRUE){
+PLOT_NOMOGRAM_COMPARE <- function( bins_1 , bins_2 , hem="bilateral" , col_1="black" , col_2="red" , title = " " , ylim = c(2700,5300) , xlim = c(40,85) , shade=TRUE){
   
   suf <- ifelse( hem == "bilateral" , "" , paste("_",hem,sep="") )
   percentiles <- paste("q",LEVELS , suf , sep = "")
@@ -656,8 +727,8 @@ PLOT_NOMOGRAM_COMPARE <- function( bins_1 , bins_2 , hem="bilateral" , col_1="bl
   axis( 1, seq(min_x , max_x , 1) )
   axis( 2, seq(min_y , max_y,100) , las=2)
   
-  abline(v=seq(min_x, max_x, 1) , col='grey' , lty=2)
-  abline(h=seq(min_y , max_y, 100) , col='grey' , lty=2)
+  abline(v=seq(min_x, max_x, 5) , col='grey' , lty=2)
+  abline(h=seq(min_y , max_y, 200) , col='grey' , lty=2)
   
   for ( i in percentiles ){
     
@@ -673,7 +744,7 @@ PLOT_NOMOGRAM_COMPARE <- function( bins_1 , bins_2 , hem="bilateral" , col_1="bl
 }
 
 
-PLOT_NOMOGRAM_COMPARE_BIDIRECTIONAL <- function( bins_1 , bins_2 , bins_3 , hem="bilateral" , col_1 , col_2 , col_3, title, xlim=NA , ylim=NA , shade=TRUE){
+PLOT_NOMOGRAM_COMPARE_BIDIRECTIONAL <- function( bins_1 , bins_2 , bins_3 , hem="bilateral" , col_1 , col_2 , col_3, title, ylim = c(2700,5300) , xlim = c(40,85) , shade=TRUE){
   
   suf <- ifelse( hem == "bilateral" , "" , paste("_",hem,sep="") )
   percentiles <- paste("q", LEVELS , suf , sep = "")
@@ -729,7 +800,7 @@ PLOT_NOMOGRAM_COMPARE_BIDIRECTIONAL <- function( bins_1 , bins_2 , bins_3 , hem=
   
 }
 
-PLOT_NOMOGRAM_ADNI <- function( bins , adni , hem =  "bilateral" , title = "" , xlim=NA , ylim=NA ){
+PLOT_NOMOGRAM_ADNI <- function( bins , adni , hem =  "bilateral" , title = "" , ylim = c(2700,5300) , xlim = c(40,85) ){
   
   adni_AD <- filter(adni , VISCODE.y=="scmri" & DX=="Dementia" )
   adni_MCI <- filter(adni , VISCODE.y=="scmri" & DX=="MCI" )
@@ -746,24 +817,28 @@ PLOT_NOMOGRAM_ADNI <- function( bins , adni , hem =  "bilateral" , title = "" , 
   
 }
 
-PLOT_NOMOGRAM_ADNI_LONGITUDINAL <- function(bins , adni , hem="bilateral" , title="" , xlim = NA , ylim=NA ){
+PLOT_NOMOGRAM_ADNI_LONGITUDINAL <- function(bins , adni , hem="bilateral" , title="" , ylim = c(2700,5300) , xlim = c(40,85) , IDS = NA){
   
   PLOT_NOMOGRAM( bins , hem=hem , title=title, xlim = xlim, ylim=ylim)
   table <- adni[ c("RID.x" , "TRUE.AGE" , "clean_hv_left", "clean_hv_right" , "clean_hv_bilateral" , "DX")]
   hv_col <- paste("clean_hv_", hem, sep="")
-  IDS <- unique(table$RID.x)
+  if( is.na(IDS[1]))
+    IDS <- unique(table$RID.x)
+  DISPLAY_ID = 0
   for (ID in IDS ){
     p_table <- table[ table$RID.x==ID , ]
     p_table <- p_table[ order(p_table$TRUE.AGE) , ]
-    if( length(p_table[ , hv_col]) > 1)
+    #if( length(p_table[ , hv_col]) > 1)
       #if(p_table[1,"TRUE.AGE"] < 73 )
-      if( sum(!is.na(unique(p_table$DX))) > 1 ){
+    #if( sum(!is.na(unique(p_table$DX))) > 1 ){      
+      if(  !is.na(match("MCI", p_table$DX)) ){
         lines( p_table$TRUE.AGE , p_table[,hv_col] , col=rgb(0,0,0, alpha = 0.5))
         points((p_table[ p_table$DX=="Dementia","TRUE.AGE"]) , (p_table[ p_table$DX=="Dementia",hv_col]) , pch=17 , col="red")
         points((p_table[ p_table$DX=="MCI","TRUE.AGE"]) , (p_table[ p_table$DX=="MCI",hv_col]) , pch=16 , col="green")
         points((p_table[ p_table$DX=="CN","TRUE.AGE"]) , (p_table[ p_table$DX=="CN",hv_col]), pch=15 , col="blue")
         points((p_table[ is.na(p_table$DX),"TRUE.AGE"]) , (p_table[ is.na(p_table$DX),hv_col]) , pch=15 , col="grey")
-        text( x = p_table[1,"TRUE.AGE"] , y = p_table[1,hv_col] , labels = p_table[1,"RID.x"] )
+        set.seed(p_table[1,"RID.x"]) # attempt to annonymize the data labels by using the actual ID as a seed for random number generation
+        text( x = p_table[1,"TRUE.AGE"] , y = p_table[1,hv_col] , labels = floor(rnorm(n=1 , mean = 5000 , sd = 1000)) )
       }
   }
   
@@ -846,11 +921,11 @@ SEPERATE <- function( Table , Column , Percent){
 MCI_Analysis <- function( ADNI_table = ADNI_male , hem = "bilateral" , bins = bins_male_gpr , title=""){
   
   #PLOT_NOMOGRAM( bins , hem=hem, xlim = c(30,100), ylim=c(2000,5200) , title = title)
-  table <- ADNI_table[ c("RID.x" , "TRUE.AGE" , "clean_hv_left", "clean_hv_right" , "clean_hv_bilateral" , "DX" , "DX.bl")]
+  table <- ADNI_table[ c("RID.x" , "TRUE.AGE" , "clean_hv_left", "clean_hv_right" , "clean_hv_bilateral" , "DX" , "DX.bl","EXAMDATE.x")]
   hv_col <- paste("clean_hv_",hem , sep = "")
   IDS <- unique(table$RID.x)
-  MCI_table <- data.frame(matrix(ncol = 5, nrow = 0))
-  names(MCI_table) <- c("RID" , "age" , "hv" , "percent" , "convert")
+  MCI_table <- data.frame(matrix(ncol = 6, nrow = 0))
+  names(MCI_table) <- c("RID" , "age" , "hv" , "percent" , "convert" , "covert_time")
   MCI_to_AD <- c()
   MCI_to_MCI <- c()
   for (ID in IDS ){
@@ -862,30 +937,78 @@ MCI_Analysis <- function( ADNI_table = ADNI_male , hem = "bilateral" , bins = bi
         first_MCI_ind <- match( "MCI" , p_table$DX )
         first_MCI_hv <- p_table[ first_MCI_ind , hv_col]
         first_MCI_perc <- AVERAGE_PERCENTILE( ADNI = p_table[ first_MCI_ind , ] , bins = bins , hem = hem , hv_col_name = hv_col)
-        if(p_table[first_MCI_ind,"DX.bl"] == "EMCI")
-          if(p_table[first_MCI_ind,"TRUE.AGE"] < 82 ){
-            if( "Dementia" %in% p_table$DX ){
-              #points( p_table[first_MCI_ind,"TRUE.AGE"] , first_MCI_hv , pch=15 , col="red")
-              #text( x = p_table[first_MCI_ind,"TRUE.AGE"] , y = first_MCI_hv+100 , labels = floor(first_MCI_perc) )
-              
-              MCI_to_AD <- c( MCI_to_AD , first_MCI_perc)
-              MCI_table[nrow(MCI_table) + 1,] <- c(unlist(p_table[first_MCI_ind, c("RID.x","TRUE.AGE") ]) ,first_MCI_hv, first_MCI_perc, 1)
-            }
-            else{
-              #points( p_table[first_MCI_ind,"TRUE.AGE"] , first_MCI_hv , pch=15 , col="blue")
-              #text( x = p_table[first_MCI_ind,"TRUE.AGE"] , y = first_MCI_hv+100 , labels = floor(first_MCI_perc) )
-              
-              MCI_to_MCI <- c( MCI_to_MCI , first_MCI_perc)
-              MCI_table[nrow(MCI_table) + 1,] <- c(unlist(p_table[first_MCI_ind, c("RID.x","TRUE.AGE") ]) ,first_MCI_hv, first_MCI_perc , 0)
-              
-              
-            }
+        #if(p_table[first_MCI_ind,"DX.bl"] == "EMCI")
+        if(p_table[first_MCI_ind,"TRUE.AGE"] < 82 ){
+          if( "Dementia" %in% p_table$DX ){
+            #points( p_table[first_MCI_ind,"TRUE.AGE"] , first_MCI_hv , pch=15 , col="red")
+            #text( x = p_table[first_MCI_ind,"TRUE.AGE"] , y = first_MCI_hv+100 , labels = floor(first_MCI_perc) )
+            first_AD_ind <- match( "Dementia" , p_table$DX )
+            days_till_converted <- as.integer(p_table[first_AD_ind,"EXAMDATE.x"] - p_table[first_MCI_ind,"EXAMDATE.x"])
+            MCI_to_AD <- c( MCI_to_AD , first_MCI_perc)
+            MCI_table[nrow(MCI_table) + 1,] <- c(unlist(p_table[first_MCI_ind, c("RID.x","TRUE.AGE") ]) ,first_MCI_hv, first_MCI_perc, 1, days_till_converted)
           }
+          else{
+            #points( p_table[first_MCI_ind,"TRUE.AGE"] , first_MCI_hv , pch=15 , col="blue")
+            #text( x = p_table[first_MCI_ind,"TRUE.AGE"] , y = first_MCI_hv+100 , labels = floor(first_MCI_perc) )
+            last_date <- tail(p_table,1)[,"EXAMDATE.x"]
+            days_so_far <- as.integer( last_date - p_table[first_MCI_ind,"EXAMDATE.x"])
+            MCI_to_MCI <- c( MCI_to_MCI , first_MCI_perc)
+            MCI_table[nrow(MCI_table) + 1,] <- c(unlist(p_table[first_MCI_ind, c("RID.x","TRUE.AGE") ]) ,first_MCI_hv, first_MCI_perc , 0 , days_so_far)
+            
+            
+          }
+        }
       }
       
     }
   }
   print( paste("MCI to MCI mean" , mean( MCI_to_MCI , na.rm = TRUE) , "and " , "MCI to AD mean " , mean(MCI_to_AD , na.rm=TRUE) ) )
   return(MCI_table)
+}
+
+
+
+MCI_Analysis_AM <- function( ADNI_table = ADNI_male , hem = "bilateral" , bins = bins_male_gpr , threshold = 1.17){
+  
+  table <- ADNI_table[ c("RID.x" , "TRUE.AGE" , "clean_hv_left", "clean_hv_right" , "clean_hv_bilateral" , "AV45" , "AV45.bl","EXAMDATE.x")]
+  hv_col <- paste("clean_hv_",hem , sep = "")
+  IDS <- unique(table$RID.x)
+  AM_table <- data.frame(matrix(ncol = 6, nrow = 0))
+  names(AM_table) <- c("RID" , "age" , "hv" , "percent" , "convert" , "covert_time")
+  neg_to_pos <- c()
+  neg_to_neg <- c()
+  for (ID in IDS ){
+    p_table <- table[table$RID.x==ID , ]
+    p_table <- p_table[ order(p_table$TRUE.AGE) , ]
+    if( length(p_table[ , hv_col]) > 1){
+      if(sum(!is.na(p_table$AV45)) > 1){
+        if( any( threshold > p_table$AV45 , na.rm = TRUE) ){
+          first_neg_ind <-  match( TRUE , (threshold > p_table$AV45) )
+          #first_MCI_hv <- p_table[ first_MCI_ind , hv_col]
+          first_neg_hv <- p_table[ first_neg_ind , hv_col]
+          #first_MCI_perc <- AVERAGE_PERCENTILE( ADNI = p_table[ first_MCI_ind , ] , bins = bins , hem = hem , hv_col_name = hv_col)
+          first_neg_perc <- AVERAGE_PERCENTILE( ADNI = p_table[ first_neg_ind , ] , bins = bins , hem = hem , hv_col_name = hv_col)
+          
+          if(p_table[first_neg_ind,"TRUE.AGE"] < 82 ){
+            if( any( threshold < p_table$AV45 , na.rm = TRUE) ){
+              first_pos_ind <- match( TRUE , (threshold < p_table$AV45) )
+              if( first_pos_ind < first_neg_ind){next}
+              days_till_converted <- as.integer(p_table[first_pos_ind,"EXAMDATE.x"] - p_table[first_neg_ind,"EXAMDATE.x"])
+              neg_to_pos <- c( neg_to_pos , first_neg_perc)
+              AM_table[nrow(AM_table) + 1,] <- c(unlist(p_table[first_neg_ind, c("RID.x","TRUE.AGE") ]) ,first_neg_hv, first_neg_perc, 1, days_till_converted)
+            }
+            else{
+              last_date <- tail(p_table,1)[,"EXAMDATE.x"]
+              days_so_far <- as.integer( last_date - p_table[first_neg_ind,"EXAMDATE.x"])
+              neg_to_neg <- c( neg_to_neg , first_neg_perc)
+              AM_table[nrow(AM_table) + 1,] <- c(unlist(p_table[first_neg_ind, c("RID.x","TRUE.AGE") ]) ,first_neg_hv, first_neg_perc , 0 , days_so_far)
+            }
+         }
+       }
+      }
+    }
+  }
+  print( paste("remain negative mean" , mean( neg_to_neg , na.rm = TRUE) , "and " , "amyloid positive mean " , mean(neg_to_pos , na.rm=TRUE) ) )
+  return(AM_table)
 }
 

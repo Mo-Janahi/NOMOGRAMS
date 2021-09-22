@@ -35,27 +35,27 @@ REGRESS_OUT <- function( hv_col_name , ICV_col_name , table ){
   return(clean_hv)
 }
 
-READ_PRS_TABLE <- function( table_path ){
+READ_PRS_TABLE <- function( table_path , prefix=NA){
   # Read in table that has the PRS calculated at different p-value thresholds.
   #PRS <- read.table("~/Desktop/ukb_data/PRS-FINAL.all.score" , header = TRUE)
   #PRS <- read.table("~/Desktop/UKB NOMOGRAM PROJECT/ukb_data/with_imaging_40k/PRS_CLN_HV_40k.all.score" , header = TRUE)
   PRS <- read.table(table_path , header = TRUE)
   
   # rename columns before merging 
-  names(PRS)[names(PRS) == 'X1e.08']  <- 'PRS_TH_1e.08'
-  names(PRS)[names(PRS) == 'X1e.07']  <- 'PRS_TH_1e.07'
-  names(PRS)[names(PRS) == 'X1e.06']  <- 'PRS_TH_1e.06'
-  names(PRS)[names(PRS) == 'X1e.05']  <- 'PRS_TH_1e.05'
-  names(PRS)[names(PRS) == 'X0.0001']  <- 'PRS_TH_1e.04'
-  names(PRS)[names(PRS) == 'X0.001']  <- 'PRS_TH_1e.03'
-  names(PRS)[names(PRS) == 'X0.01']  <- 'PRS_TH_0.01'
-  names(PRS)[names(PRS) == 'X0.05']  <- 'PRS_TH_0.05'
-  names(PRS)[names(PRS) == 'X0.1']  <- 'PRS_TH_0.1'
-  names(PRS)[names(PRS) == 'X0.2']  <- 'PRS_TH_0.2'
-  names(PRS)[names(PRS) == 'X0.4']  <- 'PRS_TH_0.4'
-  names(PRS)[names(PRS) == 'X0.5']  <- 'PRS_TH_0.5'
-  names(PRS)[names(PRS) == 'X0.75']  <- 'PRS_TH_0.75'
-  names(PRS)[names(PRS) == 'X1']  <- 'PRS_TH_1'
+  names(PRS)[names(PRS) == 'X1e.08']  <- ifelse( is.na(prefix) , 'PRS_TH_1e.08' , paste(prefix,'PRS_TH_1e.08',sep = "_") )
+  names(PRS)[names(PRS) == 'X1e.07']  <- ifelse( is.na(prefix) , 'PRS_TH_1e.07' , paste(prefix,'PRS_TH_1e.07',sep = "_") )
+  names(PRS)[names(PRS) == 'X1e.06']  <- ifelse( is.na(prefix) , 'PRS_TH_1e.06' , paste(prefix,'PRS_TH_1e.06',sep = "_") )
+  names(PRS)[names(PRS) == 'X1e.05']  <- ifelse( is.na(prefix) , 'PRS_TH_1e.05' , paste(prefix,'PRS_TH_1e.05',sep = "_") )
+  names(PRS)[names(PRS) == 'X0.0001'] <- ifelse( is.na(prefix) , 'PRS_TH_1e.04' , paste(prefix,'PRS_TH_1e.04',sep = "_") )
+  names(PRS)[names(PRS) == 'X0.001']  <- ifelse( is.na(prefix) , 'PRS_TH_1e.03' , paste(prefix,'PRS_TH_1e.03',sep = "_") )
+  names(PRS)[names(PRS) == 'X0.01']   <- ifelse( is.na(prefix) , 'PRS_TH_0.01'  , paste(prefix,'PRS_TH_0.01',sep = "_") )
+  names(PRS)[names(PRS) == 'X0.05']   <- ifelse( is.na(prefix) , 'PRS_TH_0.05'  , paste(prefix,'PRS_TH_0.05',sep = "_") )
+  names(PRS)[names(PRS) == 'X0.1']    <- ifelse( is.na(prefix) , 'PRS_TH_0.1'   , paste(prefix,'PRS_TH_0.1',sep = "_") )
+  names(PRS)[names(PRS) == 'X0.2']    <- ifelse( is.na(prefix) , 'PRS_TH_0.2'   , paste(prefix,'PRS_TH_0.2',sep = "_") )
+  names(PRS)[names(PRS) == 'X0.4']    <- ifelse( is.na(prefix) , 'PRS_TH_0.4'   , paste(prefix,'PRS_TH_0.4',sep = "_") )
+  names(PRS)[names(PRS) == 'X0.5']    <- ifelse( is.na(prefix) , 'PRS_TH_0.5'   , paste(prefix,'PRS_TH_0.5',sep = "_") )
+  names(PRS)[names(PRS) == 'X0.75']   <- ifelse( is.na(prefix) , 'PRS_TH_0.75'  , paste(prefix,'PRS_TH_0.75',sep = "_") )
+  names(PRS)[names(PRS) == 'X1']      <- ifelse( is.na(prefix) , 'PRS_TH_1'     , paste(prefix,'PRS_TH_1',sep = "_") )
   
   return(PRS)
   
@@ -267,7 +267,7 @@ PREPROCESS_UKBB <- function( ukb ){
   # -------->
   #         Rscript ../PRSice_mac/PRSice.R --prsice ./../PRSice_mac/PRSice \
   #                    --base ../CHARGE-ENIGMA-HV-METAANALYSIS-201311141.TBL.FINAL \
-  #                    --target ukb_cal_merged_maf01 --missing SET_ZERO \
+  #                    --target ../ukb_cal_merged_maf01 --missing SET_ZERO \
   #                    --geno 0.1 --maf 0.05 --no-regress --fastscore --all-score --score sum \
   #                    --binary-target F --thread 1 \
   #                    --beta --stat Beta --A1 Allele1 --snp RSNUMBERS --pvalue P.value \
@@ -279,9 +279,26 @@ PREPROCESS_UKBB <- function( ukb ){
   
   # PRS_PRSICE <- READ_PRS_TABLE("~/Desktop/ukb_data/PRS-FINAL.all.score")
   # PRS_PRSICE <- READ_PRS_TABLE("~/Desktop/UKB NOMOGRAM PROJECT/ukb_data/with_imaging_40k/PRS_CLN_HV_40k.all.score")
-  PRS_PRSICE <- READ_PRS_TABLE("~/Desktop/UKB NOMOGRAM PROJECT/ukb_data/with_imaging_40k/PRS_HV_FREESURFER_40k.all.score")
-  ukb_img_ex_outliers_male <- merge(ukb_img_ex_outliers_male , PRS_PRSICE , by.x="eid" , by.y = "IID" , all.x=TRUE )
-  ukb_img_ex_outliers_female <- merge(ukb_img_ex_outliers_female , PRS_PRSICE , by.x="eid" , by.y = "IID" , all.x=TRUE )
+  HV_PRS <- READ_PRS_TABLE("~/Desktop/UKB NOMOGRAM PROJECT/ukb_data/with_imaging_40k/PRS_HV_FREESURFER_40k.all.score")
+  ukb_img_ex_outliers_male <- merge(ukb_img_ex_outliers_male , HV_PRS , by.x="eid" , by.y = "IID" , all.x=TRUE )
+  ukb_img_ex_outliers_female <- merge(ukb_img_ex_outliers_female , HV_PRS , by.x="eid" , by.y = "IID" , all.x=TRUE )
+  
+  AD_PRS <- READ_PRS_TABLE("~/Desktop/UKB NOMOGRAM PROJECT/ukb_data/PRSice_mac/AD_PRS_HV_40k.all.score" , "AD")
+  ukb_img_ex_outliers_male <- merge(ukb_img_ex_outliers_male , AD_PRS , by.x="eid" , by.y = "IID" , all.x=TRUE )
+  ukb_img_ex_outliers_female <- merge(ukb_img_ex_outliers_female , AD_PRS , by.x="eid" , by.y = "IID" , all.x=TRUE )
+
+  ICV_PRS <- READ_PRS_TABLE("~/Desktop/UKB NOMOGRAM PROJECT/ukb_data/PRSice_mac/ICV_PRS_HV_40k.all.score" , "ICV")
+  ukb_img_ex_outliers_male <- merge(ukb_img_ex_outliers_male , ICV_PRS , by.x="eid" , by.y = "IID" , all.x=TRUE )
+  ukb_img_ex_outliers_female <- merge(ukb_img_ex_outliers_female , ICV_PRS , by.x="eid" , by.y = "IID" , all.x=TRUE )
+  
+  SE_0.01 <- READ_PRS_TABLE("~/Desktop/UKB NOMOGRAM PROJECT/ukb_data/PRSice_mac/PRS_HV_SE_0.01.all.score" , "SE_0.01")
+  ukb_img_ex_outliers_male <- merge(ukb_img_ex_outliers_male , SE_0.01 , by.x="eid" , by.y = "IID" , all.x=TRUE )
+  ukb_img_ex_outliers_female <- merge(ukb_img_ex_outliers_female , SE_0.01 , by.x="eid" , by.y = "IID" , all.x=TRUE )
+  
+  #
+  SE_0.0087 <- READ_PRS_TABLE("~/Desktop/UKB NOMOGRAM PROJECT/ukb_data/PRSice_mac/PRS_HV_SE_0.0087.all.score" , "SE_0.0087")
+  ukb_img_ex_outliers_male <- merge(ukb_img_ex_outliers_male , SE_0.0087 , by.x="eid" , by.y = "IID" , all.x=TRUE )
+  ukb_img_ex_outliers_female <- merge(ukb_img_ex_outliers_female , SE_0.0087 , by.x="eid" , by.y = "IID" , all.x=TRUE )
   
   
   return( list(ukb_img_ex_outliers_male = ukb_img_ex_outliers_male,
@@ -294,8 +311,8 @@ PREPROCESS_ADNI <- function( ADNI_table ){
   # col names : 
   # ST88SV : Volume (WM Parcellation) of RightHippocampus
   # ST29SV : Volume (WM Parcellation) of LeftHippocampus
-  names(ADNI_table)[names(ADNI_table) == 'ST88SV']    <- 'HV_Right'
-  names(ADNI_table)[names(ADNI_table) == 'ST29SV']    <- 'HV_Left'
+  names(ADNI_table)[names(ADNI_table) == 'ST88SV'] <- 'HV_Right'
+  names(ADNI_table)[names(ADNI_table) == 'ST29SV'] <- 'HV_Left'
   ADNI_table$Sex <- (ADNI_table$PTGENDER == "Male")
   
   
@@ -335,20 +352,20 @@ PREPROCESS_ADNI <- function( ADNI_table ){
   ADNI_filter_male <- ADNI_filter[ ADNI_filter$PTGENDER == "Male", ]
   
   # correct for ICV and scan date
-  ADNI_filter_male$clean_hv_right <- REGRESS_OUT_COLUMN(ADNI_filter_male$HV_Right , ADNI_filter_male$ICV ,
-                                                        as.numeric(ADNI_filter_male$EXAMDATE.x))
-  ADNI_filter_male$clean_hv_left <- REGRESS_OUT_COLUMN(ADNI_filter_male$HV_Left , ADNI_filter_male$ICV ,
-                                                       as.numeric(ADNI_filter_male$EXAMDATE.x))
+  ADNI_filter_male$clean_hv_right <- REGRESS_OUT_COLUMN(ADNI_filter_male$HV_Right , ADNI_filter_male$ICV) #,
+#                                                        as.numeric(ADNI_filter_male$EXAMDATE.x))
+  ADNI_filter_male$clean_hv_left <- REGRESS_OUT_COLUMN(ADNI_filter_male$HV_Left , ADNI_filter_male$ICV) #,
+ #                                                      as.numeric(ADNI_filter_male$EXAMDATE.x))
   
   ADNI_filter_male$clean_hv_bilateral <- ( ADNI_filter_male$clean_hv_left + ADNI_filter_male$clean_hv_right ) / 2
   
   # Female strata
   ADNI_filter_female <- ADNI_filter[ ADNI_filter$PTGENDER == "Female", ]
   # correct for ICV
-  ADNI_filter_female$clean_hv_right <- REGRESS_OUT_COLUMN(ADNI_filter_female$HV_Right , ADNI_filter_female$ICV ,
-                                                          as.numeric(ADNI_filter_female$EXAMDATE.x))
-  ADNI_filter_female$clean_hv_left <- REGRESS_OUT_COLUMN(ADNI_filter_female$HV_Left , ADNI_filter_female$ICV ,
-                                                         as.numeric(ADNI_filter_female$EXAMDATE.x))
+  ADNI_filter_female$clean_hv_right <- REGRESS_OUT_COLUMN(ADNI_filter_female$HV_Right , ADNI_filter_female$ICV )#,
+#                                                          as.numeric(ADNI_filter_female$EXAMDATE.x))
+  ADNI_filter_female$clean_hv_left <- REGRESS_OUT_COLUMN(ADNI_filter_female$HV_Left , ADNI_filter_female$ICV )#,
+#                                                         as.numeric(ADNI_filter_female$EXAMDATE.x))
   ADNI_filter_female$clean_hv_bilateral <- ( ADNI_filter_female$clean_hv_left + ADNI_filter_female$clean_hv_right ) / 2
   
   return( list( ADNI_male = ADNI_filter_male ,
